@@ -37,9 +37,9 @@
     <script>
         // --- DATA ---
         const namesList = [
-  "Himanshu",
+        "Himanshu",
   "Anushka",
-  "Prathish GM",
+  "Prathish",
   "Tushar",
   "Needa",
   "Yusuf Nadaf",
@@ -53,17 +53,38 @@
   "Sanchit",
   "Sushant",
   "Rutuja",
-  "Akshay",
-  "ashok",
-  "Mukid Momin",
+  "Ashok",
+  "Mukid",
   "Sakshi",
   "Chaity",
   "Jagruti",
   "Chandini",
-  "akshay gund",
-  "vikas"
-]
-
+  "Akshay",
+  "Himanshu",
+  "Anushka",
+  "Prathish",
+  "Tushar",
+  "Needa",
+  "Yusuf Nadaf",
+  "Aayushi",
+  "Shantanu",
+  "Tushar Mahapure",
+  "Azhar",
+  "Vaibhav",
+  "Prakash",
+  "Shravani",
+  "Sanchit",
+  "Sushant",
+  "Rutuja",
+  "Ashok",
+  "Mukid",
+  "Sakshi",
+  "Chaity",
+  "Jagruti",
+  "Chandini",
+  "Akshay",
+  
+        ];
 
         const colorPalette = [
             new THREE.Color('#ff5e57'), // Red
@@ -81,24 +102,21 @@
         scene.fog = new THREE.FogExp2(0x000000, 0.0015);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.z = 150; // Started a bit further back
+        camera.position.z = 150; 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
-        // **IMPORTANT: Lighting**
-        // 3D text needs light to look 3D. Stars don't need it.
+        // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
-        // Add a light attached to the camera so it shines wherever we look
         const pointLight = new THREE.PointLight(0xffffff, 0.8);
         camera.add(pointLight);
         scene.add(camera);
 
-        // **Universe Group** - We will add stars and text to this group
-        // so they rotate together.
+        // Universe Group
         const universeGroup = new THREE.Group();
         scene.add(universeGroup);
 
@@ -125,10 +143,9 @@
         const colorArray = new Float32Array(starCount * 3);
 
         for(let i = 0; i < starCount * 3; i+=3) {
-            // Spread stars out wider
-            posArray[i] = (Math.random() - 0.5) * 800;     
-            posArray[i+1] = (Math.random() - 0.5) * 800;   
-            posArray[i+2] = (Math.random() - 0.5) * 800;   
+            posArray[i] = (Math.random() - 0.5) * 800;      
+            posArray[i+1] = (Math.random() - 0.5) * 800;    
+            posArray[i+2] = (Math.random() - 0.5) * 800;    
 
             const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
             colorArray[i] = color.r; colorArray[i+1] = color.g; colorArray[i+2] = color.b;
@@ -141,21 +158,47 @@
             opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending
         });
         const starMesh = new THREE.Points(starGeometry, starMaterial);
-        // Add stars to the group instead of scene
         universeGroup.add(starMesh);
+
+
+        // --- 2. ADD LOGO (New Code Here) ---
+        const logoUrl = "https://storage.fotoowl.ai/events/115477/9wZzJddMOYMdZMYyXmBAj90cRXe2/med/fotooowl-logo-dark.webp?last=1757314084";
+        const textureLoader = new THREE.TextureLoader();
+        
+        // Allow cross origin loading just in case
+        textureLoader.crossOrigin = "Anonymous";
+
+        textureLoader.load(logoUrl, function(texture) {
+            // Calculate aspect ratio so logo isn't squashed
+            const imageAspect = texture.image.width / texture.image.height;
+            const logoWidth = 100; // Size of the logo
+            const logoHeight = logoWidth / imageAspect;
+
+            const logoGeo = new THREE.PlaneGeometry(logoWidth, logoHeight);
+            const logoMat = new THREE.MeshBasicMaterial({ 
+                map: texture, 
+                transparent: true, // Needed for transparent background
+                side: THREE.DoubleSide // Visible from back
+            });
+            const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+            
+            logoMesh.position.set(0, 0, 0); // Center position
+            logoMesh.name = "MainLogo"; // Naming it to find it in animation loop
+
+            universeGroup.add(logoMesh);
+        });
 
 
         // --- 3D TEXT LOADING & CREATION ---
         function loadFontAndCreateNames() {
             const loader = new THREE.FontLoader();
-            // Using a standard helvetiker font hosted online
             loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', function (font) {
                 
                 namesList.forEach(nameStr => {
                     const textGeo = new THREE.TextGeometry(nameStr, {
                         font: font,
-                        size: Math.random() * 10 + 4, // Random size between 4 and 9
-                        height: 1.5, // Thickness of the 3D text
+                        size: Math.random() * 5 + 4, 
+                        height: 1.5, 
                         curveSegments: 12,
                         bevelEnabled: true,
                         bevelThickness: 0.2,
@@ -164,13 +207,11 @@
                         bevelSegments: 5
                     });
 
-                    // Center the text geometry around its pivot point
                     textGeo.computeBoundingBox();
                     const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
                     textGeo.translate( centerOffset, 0, 0 );
 
                     const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
-                    // Phong material reacts to light, making it look 3D
                     const textMaterial = new THREE.MeshPhongMaterial({ 
                         color: color, 
                         specular: 0x555555,
@@ -179,12 +220,16 @@
 
                     const textMesh = new THREE.Mesh(textGeo, textMaterial);
 
-                    // Random position within the starfield
-                    textMesh.position.x = (Math.random() - 0.5) * 400;
-                    textMesh.position.y = (Math.random() - 0.5) * 400;
-                    textMesh.position.z = (Math.random() - 0.5) * 400;
+                    // Position randomly but avoid dead center (so they don't clip into logo)
+                    let x = (Math.random() - 0.5) * 400;
+                    let y = (Math.random() - 0.5) * 400;
+                    let z = (Math.random() - 0.5) * 400;
                     
-                    // Give them random slight initial rotations
+                    // Simple check: if too close to center, push out
+                    if (Math.abs(x) < 30 && Math.abs(y) < 30) x += 50;
+
+                    textMesh.position.set(x, y, z);
+                    
                     textMesh.rotation.x = (Math.random() - 0.5) * 0.5;
                     textMesh.rotation.y = (Math.random() - 0.5) * 0.5;
 
@@ -193,7 +238,6 @@
             });
         }
 
-        // Kick off font loading
         loadFontAndCreateNames();
 
 
@@ -207,7 +251,6 @@
         const loadingElement = document.getElementById('loading');
 
         function onResults(results) {
-            // Hide loading only once hands are detected
             if(loadingElement.style.display !== 'none') {
                  loadingElement.style.display = 'none';
             }
@@ -215,17 +258,12 @@
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // Rotation using Index Finger Tip (8)
-                // Increased sensitivity slightly
                 targetRotationY = (landmarks[8].x - 0.5) * 7; 
                 targetRotationX = (landmarks[8].y - 0.5) * 7; 
 
-                // Zoom Logic
                 const wrist = landmarks[0];
                 const middleBase = landmarks[9];
-                // Calculate distance based on palm size
                 const dist = Math.sqrt(Math.pow(wrist.x - middleBase.x, 2) + Math.pow(wrist.y - middleBase.y, 2));
-                // Invert logic: Closer hand (larger dist) -> larger Z (zoom out)
                 targetZoomZ = 20 + (dist * 500); 
             }
         }
@@ -244,22 +282,22 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Rotate the entire universe group (stars + text)
             universeGroup.rotation.y += (targetRotationY - universeGroup.rotation.y) * 0.05;
             universeGroup.rotation.x += (targetRotationX - universeGroup.rotation.x) * 0.05;
-
-            // Zoom the camera
             camera.position.z += (targetZoomZ - camera.position.z) * 0.05;
-
-            // Idle rotation for the whole group
             universeGroup.rotation.z += 0.0003;
 
-            // Slowly rotate individual text meshes for extra dynamism
             universeGroup.children.forEach(child => {
                 if (child.type === 'Mesh' && child !== starMesh) {
-                     // It's a text mesh
-                     child.rotation.y += 0.005;
-                     child.rotation.x += 0.002;
+                    
+                    if (child.name === 'MainLogo') {
+                        // Special animation for the Logo (Slow gentle spin)
+                        child.rotation.y -= 0.005;
+                    } else {
+                        // Animation for Text names
+                        child.rotation.y += 0.005;
+                        child.rotation.x += 0.002;
+                    }
                 }
             });
 
