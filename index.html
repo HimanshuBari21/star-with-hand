@@ -3,169 +3,271 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hand Controlled Star Field</title>
+    <title>Hand Controlled 3D Universe</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000000; /* Dark black background */
-            font-family: sans-serif;
-        }
-        #video-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 160px;
-            height: 120px;
-            border: 2px solid #333;
-            border-radius: 8px;
-            overflow: hidden;
-            z-index: 10;
-            opacity: 0.7;
-        }
-        #input_video {
-            width: 100%;
-            height: 100%;
-            transform: scaleX(-1); /* Mirror the webcam preview */
-            object-fit: cover;
-        }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            pointer-events: none;
-            z-index: 20;
-        }
+        /* Custom hide scrollbar */
+        body { margin: 0; overflow: hidden; }
     </style>
 </head>
-<body>
+<body class="bg-black text-white font-sans h-screen w-screen relative">
 
-    <div id="loading">Initializing Camera & AI...</div>
-
-    <div id="video-container">
-        <video id="input_video"></video>
+    <div id="loading" class="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+        <div class="bg-gray-900 bg-opacity-80 px-6 py-4 rounded-lg shadow-xl border border-gray-700">
+            <p class="text-blue-400 animate-pulse font-bold tracking-widest">INITIALIZING UNIVERSE...</p>
+        </div>
     </div>
 
-    <div id="canvas-container"></div>
+    <div class="absolute top-5 left-5 w-48 h-36 border-2 border-gray-800 rounded-xl overflow-hidden z-20 opacity-80 shadow-lg shadow-blue-500/20">
+        <video id="input_video" class="w-full h-full object-cover transform -scale-x-100"></video>
+    </div>
+
+    <div id="canvas-container" class="w-full h-full absolute top-0 left-0 z-10"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <script>
-        // --- 1. THREE.JS SETUP (The Visuals) ---
+        // --- DATA ---
+        const namesList = [
+  "Himanshu",
+  "Anushka",
+  "Prathish GM",
+  "Tushar",
+  "Needa",
+  "Yusuf Nadaf",
+  "Aayushi",
+  "Shantanu",
+  "Tushar Mahapure",
+  "Azhar",
+  "Vaibhav",
+  "Prakash",
+  "Shravani",
+  "Sanchit",
+  "Sushant",
+  "Rutuja",
+  "Akshay",
+  "ashok",
+  "Mukid Momin",
+  "Sakshi",
+  "Chaity",
+  "Jagruti",
+  "Chandini",
+  "akshay gund",
+  "vikas"
+]
+
+
+        const colorPalette = [
+            new THREE.Color('#ff5e57'), // Red
+            new THREE.Color('#0fb9b1'), // Cyan
+            new THREE.Color('#f7b731'), // Yellow
+            new THREE.Color('#ff3f34'), // Orange
+            new THREE.Color('#0be881'), // Green
+            new THREE.Color('#a55eea'), // Purple
+            new THREE.Color('#4bcffa')  // Light Blue
+        ];
+
+        // --- 1. THREE.JS SETUP ---
+        const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        // Fog to fade distant stars into the black background
-        scene.fog = new THREE.FogExp2(0x000000, 0.002);
+        scene.fog = new THREE.FogExp2(0x000000, 0.0015);
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 50;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.z = 150; // Started a bit further back
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        container.appendChild(renderer.domElement);
 
-        // Create Stars
+        // **IMPORTANT: Lighting**
+        // 3D text needs light to look 3D. Stars don't need it.
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        // Add a light attached to the camera so it shines wherever we look
+        const pointLight = new THREE.PointLight(0xffffff, 0.8);
+        camera.add(pointLight);
+        scene.add(camera);
+
+        // **Universe Group** - We will add stars and text to this group
+        // so they rotate together.
+        const universeGroup = new THREE.Group();
+        scene.add(universeGroup);
+
+        // --- Helper: Round Star Texture ---
+        function getStarTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.6)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        // --- Create Stars ---
         const starGeometry = new THREE.BufferGeometry();
-        const starCount = 6000;
+        const starCount = 5000;
         const posArray = new Float32Array(starCount * 3);
+        const colorArray = new Float32Array(starCount * 3);
 
-        for(let i = 0; i < starCount * 3; i++) {
-            // Spread stars randomly in a large area
-            posArray[i] = (Math.random() - 0.5) * 200; 
+        for(let i = 0; i < starCount * 3; i+=3) {
+            // Spread stars out wider
+            posArray[i] = (Math.random() - 0.5) * 800;     
+            posArray[i+1] = (Math.random() - 0.5) * 800;   
+            posArray[i+2] = (Math.random() - 0.5) * 800;   
+
+            const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+            colorArray[i] = color.r; colorArray[i+1] = color.g; colorArray[i+2] = color.b;
         }
 
         starGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-
+        starGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
         const starMaterial = new THREE.PointsMaterial({
-            size: 0.5,
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.8,
+            size: 1.2, map: getStarTexture(), vertexColors: true, transparent: true,
+            opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending
         });
-
         const starMesh = new THREE.Points(starGeometry, starMaterial);
-        scene.add(starMesh);
+        // Add stars to the group instead of scene
+        universeGroup.add(starMesh);
 
-        // --- 2. INTERACTION STATE ---
+
+        // --- 3D TEXT LOADING & CREATION ---
+        function loadFontAndCreateNames() {
+            const loader = new THREE.FontLoader();
+            // Using a standard helvetiker font hosted online
+            loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', function (font) {
+                
+                namesList.forEach(nameStr => {
+                    const textGeo = new THREE.TextGeometry(nameStr, {
+                        font: font,
+                        size: Math.random() * 10 + 4, // Random size between 4 and 9
+                        height: 1.5, // Thickness of the 3D text
+                        curveSegments: 12,
+                        bevelEnabled: true,
+                        bevelThickness: 0.2,
+                        bevelSize: 0.1,
+                        bevelOffset: 0,
+                        bevelSegments: 5
+                    });
+
+                    // Center the text geometry around its pivot point
+                    textGeo.computeBoundingBox();
+                    const centerOffset = - 0.5 * ( textGeo.boundingBox.max.x - textGeo.boundingBox.min.x );
+                    textGeo.translate( centerOffset, 0, 0 );
+
+                    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                    // Phong material reacts to light, making it look 3D
+                    const textMaterial = new THREE.MeshPhongMaterial({ 
+                        color: color, 
+                        specular: 0x555555,
+                        shininess: 30 
+                    });
+
+                    const textMesh = new THREE.Mesh(textGeo, textMaterial);
+
+                    // Random position within the starfield
+                    textMesh.position.x = (Math.random() - 0.5) * 400;
+                    textMesh.position.y = (Math.random() - 0.5) * 400;
+                    textMesh.position.z = (Math.random() - 0.5) * 400;
+                    
+                    // Give them random slight initial rotations
+                    textMesh.rotation.x = (Math.random() - 0.5) * 0.5;
+                    textMesh.rotation.y = (Math.random() - 0.5) * 0.5;
+
+                    universeGroup.add(textMesh);
+                });
+            });
+        }
+
+        // Kick off font loading
+        loadFontAndCreateNames();
+
+
+        // --- INTERACTION STATE ---
         let targetRotationX = 0;
         let targetRotationY = 0;
-        
-        // --- 3. MEDIAPIPE SETUP (The Hand Tracking) ---
+        let targetZoomZ = 150;
+
+        // --- MEDIAPIPE SETUP ---
         const videoElement = document.getElementById('input_video');
         const loadingElement = document.getElementById('loading');
 
         function onResults(results) {
-            loadingElement.style.display = 'none';
+            // Hide loading only once hands are detected
+            if(loadingElement.style.display !== 'none') {
+                 loadingElement.style.display = 'none';
+            }
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                // Get the first detected hand
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // Use the wrist (landmark 0) or middle finger (landmark 9) as the control point
-                // Landmarks are normalized (0.0 to 1.0)
-                const x = landmarks[9].x; 
-                const y = landmarks[9].y;
+                // Rotation using Index Finger Tip (8)
+                // Increased sensitivity slightly
+                targetRotationY = (landmarks[8].x - 0.5) * 7; 
+                targetRotationX = (landmarks[8].y - 0.5) * 7; 
 
-                // Map coordinates to rotation angles
-                // MediaPipe x is 0(left) to 1(right). 
-                // We offset by -0.5 to make center 0.
-                // Multiplier determines sensitivity.
-                targetRotationY = (x - 0.5) * 4; 
-                targetRotationX = (y - 0.5) * 4; 
+                // Zoom Logic
+                const wrist = landmarks[0];
+                const middleBase = landmarks[9];
+                // Calculate distance based on palm size
+                const dist = Math.sqrt(Math.pow(wrist.x - middleBase.x, 2) + Math.pow(wrist.y - middleBase.y, 2));
+                // Invert logic: Closer hand (larger dist) -> larger Z (zoom out)
+                targetZoomZ = 20 + (dist * 500); 
             }
         }
 
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
         hands.onResults(onResults);
 
         const cameraFeed = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 320,
-            height: 240
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 320, height: 240
         });
-
         cameraFeed.start();
 
-        // --- 4. ANIMATION LOOP ---
+        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
 
-            // Smooth interpolation (Lerp) for fluid movement
-            // This makes the stars "glide" to the hand position rather than snap instantly
-            starMesh.rotation.y += (targetRotationY - starMesh.rotation.y) * 0.05;
-            starMesh.rotation.x += (targetRotationX - starMesh.rotation.x) * 0.05;
+            // Rotate the entire universe group (stars + text)
+            universeGroup.rotation.y += (targetRotationY - universeGroup.rotation.y) * 0.05;
+            universeGroup.rotation.x += (targetRotationX - universeGroup.rotation.x) * 0.05;
 
-            // Add a tiny bit of constant rotation for idle visual interest
-            starMesh.rotation.z += 0.001;
+            // Zoom the camera
+            camera.position.z += (targetZoomZ - camera.position.z) * 0.05;
+
+            // Idle rotation for the whole group
+            universeGroup.rotation.z += 0.0003;
+
+            // Slowly rotate individual text meshes for extra dynamism
+            universeGroup.children.forEach(child => {
+                if (child.type === 'Mesh' && child !== starMesh) {
+                     // It's a text mesh
+                     child.rotation.y += 0.005;
+                     child.rotation.x += 0.002;
+                }
+            });
 
             renderer.render(scene, camera);
         }
 
         animate();
 
-        // Handle window resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
